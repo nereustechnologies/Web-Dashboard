@@ -21,6 +21,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+@app.get("/")
+def root():
+    return {"status": "ok", "message": "IMU Service is running!"}
 
 # UUIDs for the IMU service and characteristic
 SERVICE_UUID = "19b10000-e8f2-537e-4f6c-d104768a1214"
