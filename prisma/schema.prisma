@@ -1,0 +1,111 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x", "rhel-openssl-1.1.x", "windows"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String // "admin" or "tester"
+  adminId   String? // For testers, references the admin who created them
+  admin     User?    @relation("AdminToTesters", fields: [adminId], references: [id])
+  testers   User[]   @relation("AdminToTesters")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tests     Test[]
+}
+
+model Customer {
+  id            String   @id @default(uuid())
+  name          String
+  age           Int
+  gender        String
+  height        Float
+  weight        Float
+  sleepLevels   Float
+  activityLevel String
+  calorieIntake Int
+  mood          String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  tests         Test[]
+}
+
+model Test {
+  id         String      @id @default(uuid())
+  date       DateTime    @default(now())
+  status     String // "Completed", "Partial", "In Progress"
+  customerId String
+  customer   Customer    @relation(fields: [customerId], references: [id])
+  testerId   String
+  tester     User        @relation(fields: [testerId], references: [id])
+  exercises  Exercise[]
+  ratings    TestRating?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+model Exercise {
+  id        String         @id @default(uuid())
+  name      String
+  category  String // "mobility", "strength", "endurance"
+  completed Boolean        @default(false)
+  testId    String
+  test      Test           @relation(fields: [testId], references: [id])
+  data      ExerciseData[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+model ExerciseData {
+  id         String   @id @default(uuid())
+  timestamp  String
+  action     String
+  leg        String?
+  exerciseId String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+model TestRating {
+  id               String   @id @default(uuid())
+  overall          Int
+  mobility         Int
+  strength         Int
+  endurance        Int
+  feedback         String?
+  customerFeedback String?
+  testId           String   @unique
+  test             Test     @relation(fields: [testId], references: [id])
+  createdAt        DateTime @default(now())
+}
+
+model Sensor {
+  id        String   @id @default(uuid())
+  name      String
+  battery   Int
+  connected Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ZipFile {
+  id         String   @id
+  filename   String
+  filePath   String
+  testId     String?
+  testerId   String
+  customerId String
+  createdAt  DateTime @default(now())
+}
