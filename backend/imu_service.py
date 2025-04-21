@@ -6,17 +6,22 @@ import zipfile
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 
-# Conditionally import BLE libraries to handle cloud deployment
-try:
-    from bleak import BleakScanner, BleakClient
+# Detect if we're running in a cloud environment (like Render)
+IN_CLOUD = os.environ.get('RENDER', False) or os.environ.get('RAILWAY', False)
 
-    BLE_AVAILABLE = True
-except ImportError:
-    BLE_AVAILABLE = False
+# Conditionally import BLE libraries
+BLE_AVAILABLE = False
+if not IN_CLOUD:
+    try:
+        from bleak import BleakScanner, BleakClient
+
+        BLE_AVAILABLE = True
+    except ImportError:
+        print("BLE libraries not available, running in limited mode")
 
 # Create FastAPI app
 app = FastAPI()
@@ -33,7 +38,7 @@ app.add_middleware(
 
 @app.get("/")
 def root():
-    return {"status": "ok", "message": "IMU Service is running!"}
+    return {"status": "ok", "message": "IMU Service is running!", "ble_available": BLE_AVAILABLE}
 
 
 # UUIDs for the IMU service and characteristic
@@ -73,8 +78,14 @@ class ScanResult(BaseModel):
 @app.get("/scan", response_model=List[ScanResult])
 async def scan_devices():
     """Scan for available IMU devices"""
-    if not BLE_AVAILABLE:
-        return []  # Return empty list when running in cloud environment without BLE
+    # When in cloud or BLE not available, return mock devices for testing
+    if IN_CLOUD or not BLE_AVAILABLE:
+        print("Running in cloud environment or BLE not available, returning mock devices")
+        # Return empty list or mock data for testing
+        return [
+            ScanResult(address="00:00:00:00:00:01", name="MockIMU_01"),
+            ScanResult(address="00:00:00:00:00:02", name="MockIMU_02")
+        ]
 
     try:
         devices = await BleakScanner.discover(5.0, return_adv=True)
@@ -86,14 +97,22 @@ async def scan_devices():
 
         return imu_devices
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error scanning for devices: {str(e)}")
+        print(f"Error scanning for devices: {str(e)}")
+        # Return empty list instead of raising exception
+        return []
 
 
 @app.post("/connect/{device_address}")
 async def connect_device(device_address: str, background_tasks: BackgroundTasks):
     """Connect to an IMU device"""
-    if not BLE_AVAILABLE:
-        raise HTTPException(status_code=503, detail="BLE functionality not available in this environment")
+    if IN_CLOUD or not BLE_AVAILABLE:
+        # Mock connection for cloud environment
+        active_connections[device_address] = {
+            "client": None,
+            "connected_at": datetime.now().isoformat(),
+            "mock": True
+        }
+        return {"status": "connected", "message": f"Mock connected to {device_address}"}
 
     if device_address in active_connections:
         return {"status": "already_connected", "message": f"Already connected to {device_address}"}
@@ -102,19 +121,26 @@ async def connect_device(device_address: str, background_tasks: BackgroundTasks)
         background_tasks.add_task(connect_and_monitor, device_address)
         return {"status": "connecting", "message": f"Connecting to {device_address}"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error connecting to device: {str(e)}")
+        print(f"Connection error: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "message": f"Error connecting to device: {str(e)}"}
+        )
 
 
 @app.post("/disconnect/{device_address}")
 async def disconnect_device(device_address: str):
     """Disconnect from an IMU device"""
-    if not BLE_AVAILABLE:
-        raise HTTPException(status_code=503, detail="BLE functionality not available in this environment")
-
     if device_address not in active_connections:
-        raise HTTPException(status_code=404, detail=f"Not connected to {device_address}")
+        return {"status": "not_connected", "message": f"Not connected to {device_address}"}
 
     try:
+        # For mock connections or cloud environment
+        if IN_CLOUD or not BLE_AVAILABLE or active_connections[device_address].get("mock", False):
+            active_connections.pop(device_address)
+            return {"status": "disconnected", "message": f"Disconnected from {device_address}"}
+
+        # For real connections
         client = active_connections[device_address]["client"]
         if client and client.is_connected:
             await client.disconnect()
@@ -122,7 +148,11 @@ async def disconnect_device(device_address: str):
         active_connections.pop(device_address)
         return {"status": "disconnected", "message": f"Disconnected from {device_address}"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error disconnecting from device: {str(e)}")
+        print(f"Disconnection error: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "message": f"Error disconnecting from device: {str(e)}"}
+        )
 
 
 @app.post("/start-test")
@@ -145,6 +175,20 @@ async def start_test(test_info: TestInfo):
         "data": []
     }
 
+    # For cloud/mock environment, add some mock data
+    if IN_CLOUD or not BLE_AVAILABLE:
+        # Generate some mock IMU data
+        for i in range(100):
+            test_data[test_id]["data"].append({
+                "accX": 0.1 * i % 10,
+                "accY": 0.2 * i % 10,
+                "accZ": 9.8 + (0.05 * i % 10),
+                "gyrX": 0.01 * i % 5,
+                "gyrY": 0.02 * i % 5,
+                "gyrZ": 0.03 * i % 5,
+                "timestamp": (datetime.now() + datetime.timedelta(milliseconds=i * 10)).isoformat()
+            })
+
     return {"status": "started", "message": f"Test {test_id} started"}
 
 
@@ -154,39 +198,64 @@ async def end_exercise(test_info: TestInfo):
     test_id = test_info.testId
 
     if test_id not in test_data:
-        raise HTTPException(status_code=404, detail=f"Test {test_id} not found")
+        return JSONResponse(
+            status_code=404,
+            content={"status": "not_found", "message": f"Test {test_id} not found"}
+        )
 
     current = test_data[test_id]["current_exercise"]
     exercise_key = f"{current['type']}_{current['name']}"
 
     if test_data[test_id]["data"]:
         os.makedirs(f"data/{test_id}", exist_ok=True)
-        df = pd.DataFrame(test_data[test_id]["data"])
 
-        df["accX"] *= 9.81
-        df["accY"] *= 9.81
-        df["accZ"] *= 9.81
-        df["gyrX"] *= (3.14159 / 180)
-        df["gyrY"] *= (3.14159 / 180)
-        df["gyrZ"] *= (3.14159 / 180)
+        try:
+            df = pd.DataFrame(test_data[test_id]["data"])
 
-        df["exercise_type"] = current["type"]
-        df["exercise_name"] = current["name"]
+            # Convert units
+            df["accX"] = df["accX"].astype(float) * 9.81
+            df["accY"] = df["accY"].astype(float) * 9.81
+            df["accZ"] = df["accZ"].astype(float) * 9.81
+            df["gyrX"] = df["gyrX"].astype(float) * (3.14159 / 180)
+            df["gyrY"] = df["gyrY"].astype(float) * (3.14159 / 180)
+            df["gyrZ"] = df["gyrZ"].astype(float) * (3.14159 / 180)
 
-        csv_path = f"data/{test_id}/{exercise_key}.csv"
-        df.to_csv(csv_path, index=False)
+            df["exercise_type"] = current["type"]
+            df["exercise_name"] = current["name"]
 
-        test_data[test_id]["exercises"][exercise_key] = {
-            "type": current["type"],
-            "name": current["name"],
-            "csv_path": csv_path
-        }
+            csv_path = f"data/{test_id}/{exercise_key}.csv"
+            df.to_csv(csv_path, index=False)
+
+            test_data[test_id]["exercises"][exercise_key] = {
+                "type": current["type"],
+                "name": current["name"],
+                "csv_path": csv_path
+            }
+        except Exception as e:
+            print(f"Error processing data: {str(e)}")
+            return JSONResponse(
+                status_code=500,
+                content={"status": "error", "message": f"Error processing data: {str(e)}"}
+            )
 
     test_data[test_id]["current_exercise"] = {
         "type": test_info.exerciseType,
         "name": test_info.exerciseName
     }
     test_data[test_id]["data"] = []
+
+    # Add mock data for next exercise if needed
+    if IN_CLOUD or not BLE_AVAILABLE:
+        for i in range(100):
+            test_data[test_id]["data"].append({
+                "accX": 0.1 * i % 10,
+                "accY": 0.2 * i % 10,
+                "accZ": 9.8 + (0.05 * i % 10),
+                "gyrX": 0.01 * i % 5,
+                "gyrY": 0.02 * i % 5,
+                "gyrZ": 0.03 * i % 5,
+                "timestamp": (datetime.now() + datetime.timedelta(milliseconds=i * 10)).isoformat()
+            })
 
     return {
         "status": "exercise_completed",
@@ -199,34 +268,55 @@ async def end_exercise(test_info: TestInfo):
 async def end_test(test_id: str, background_tasks: BackgroundTasks):
     """End the test and create a zip file with all data"""
     if test_id not in test_data:
-        raise HTTPException(status_code=404, detail=f"Test {test_id} not found")
+        return JSONResponse(
+            status_code=404,
+            content={"status": "not_found", "message": f"Test {test_id} not found"}
+        )
 
     if test_data[test_id]["data"]:
         current = test_data[test_id]["current_exercise"]
         exercise_key = f"{current['type']}_{current['name']}"
 
-        df = pd.DataFrame(test_data[test_id]["data"])
-        df["accX"] *= 9.81
-        df["accY"] *= 9.81
-        df["accZ"] *= 9.81
-        df["gyrX"] *= (3.14159 / 180)
-        df["gyrY"] *= (3.14159 / 180)
-        df["gyrZ"] *= (3.14159 / 180)
-        df["exercise_type"] = current["type"]
-        df["exercise_name"] = current["name"]
+        try:
+            os.makedirs(f"data/{test_id}", exist_ok=True)
+            df = pd.DataFrame(test_data[test_id]["data"])
 
-        os.makedirs(f"data/{test_id}", exist_ok=True)
-        csv_path = f"data/{test_id}/{exercise_key}.csv"
-        df.to_csv(csv_path, index=False)
+            # Convert units
+            df["accX"] = df["accX"].astype(float) * 9.81
+            df["accY"] = df["accY"].astype(float) * 9.81
+            df["accZ"] = df["accZ"].astype(float) * 9.81
+            df["gyrX"] = df["gyrX"].astype(float) * (3.14159 / 180)
+            df["gyrY"] = df["gyrY"].astype(float) * (3.14159 / 180)
+            df["gyrZ"] = df["gyrZ"].astype(float) * (3.14159 / 180)
 
-        test_data[test_id]["exercises"][exercise_key] = {
-            "type": current["type"],
-            "name": current["name"],
-            "csv_path": csv_path
-        }
+            df["exercise_type"] = current["type"]
+            df["exercise_name"] = current["name"]
 
-    background_tasks.add_task(create_zip_file, test_id)
-    return {"status": "test_completed", "message": f"Test {test_id} completed"}
+            csv_path = f"data/{test_id}/{exercise_key}.csv"
+            df.to_csv(csv_path, index=False)
+
+            test_data[test_id]["exercises"][exercise_key] = {
+                "type": current["type"],
+                "name": current["name"],
+                "csv_path": csv_path
+            }
+        except Exception as e:
+            print(f"Error processing final data: {str(e)}")
+            return JSONResponse(
+                status_code=500,
+                content={"status": "error", "message": f"Error processing final data: {str(e)}"}
+            )
+
+    try:
+        # Create zip file in the main thread to avoid background task issues
+        await create_zip_file(test_id)
+        return {"status": "test_completed", "message": f"Test {test_id} completed"}
+    except Exception as e:
+        print(f"Error creating zip file: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "message": f"Error creating zip file: {str(e)}"}
+        )
 
 
 @app.get("/download/{test_id}")
@@ -234,7 +324,10 @@ async def get_download_url(test_id: str):
     """Get the URL for downloading the test data zip file"""
     zip_path = f"data/{test_id}/test_data.zip"
     if not os.path.exists(zip_path):
-        raise HTTPException(status_code=404, detail=f"Zip file for test {test_id} not found")
+        return JSONResponse(
+            status_code=404,
+            content={"status": "not_found", "message": f"Zip file for test {test_id} not found"}
+        )
     return {"download_url": f"/api/download/{test_id}"}
 
 
@@ -243,7 +336,10 @@ async def download_zip(test_id: str):
     """Serve the zip file directly"""
     zip_path = f"data/{test_id}/test_data.zip"
     if not os.path.exists(zip_path):
-        raise HTTPException(status_code=404, detail="Zip file not found")
+        return JSONResponse(
+            status_code=404,
+            content={"status": "not_found", "message": "Zip file not found"}
+        )
     return FileResponse(zip_path, media_type='application/zip', filename=f"{test_id}_data.zip")
 
 
@@ -257,7 +353,8 @@ async def connect_and_monitor(device_address: str):
         await client.connect()
 
         if not client.is_connected:
-            raise Exception(f"Failed to connect to {device_address}")
+            print(f"Failed to connect to {device_address}")
+            return
 
         print(f"[INFO] Connected to {device_address}")
         active_connections[device_address] = {
@@ -296,14 +393,18 @@ async def create_zip_file(test_id: str):
     test_dir = f"data/{test_id}"
     zip_path = f"{test_dir}/test_data.zip"
 
-    with zipfile.ZipFile(zip_path, 'w') as zipf:
-        for exercise_key, exercise_info in test_data[test_id]["exercises"].items():
-            csv_path = exercise_info["csv_path"]
-            if os.path.exists(csv_path):
-                zipf.write(csv_path, os.path.basename(csv_path))
+    try:
+        with zipfile.ZipFile(zip_path, 'w') as zipf:
+            for exercise_key, exercise_info in test_data[test_id]["exercises"].items():
+                csv_path = exercise_info["csv_path"]
+                if os.path.exists(csv_path):
+                    zipf.write(csv_path, os.path.basename(csv_path))
 
-    test_data[test_id]["zip_path"] = zip_path
-    test_data[test_id]["end_time"] = datetime.now().isoformat()
+        test_data[test_id]["zip_path"] = zip_path
+        test_data[test_id]["end_time"] = datetime.now().isoformat()
+    except Exception as e:
+        print(f"Error creating zip file: {e}")
+        raise
 
 
 # Start the application
@@ -311,5 +412,6 @@ if __name__ == "__main__":
     import uvicorn
 
     # Use Render's provided port or default to 8000
-    port = int(os.environ.get("PORT", 8000))
+    port = int(os.environ.get("PORT", 10000))
+    print(f"Starting server on port {port}")
     uvicorn.run(app, host="0.0.0.0", port=port)
