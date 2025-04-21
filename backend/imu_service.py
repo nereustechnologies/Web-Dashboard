@@ -4,12 +4,19 @@ import os
 import pandas as pd
 import zipfile
 from datetime import datetime
-from bleak import BleakScanner, BleakClient
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Dict, Optional
+
+# Conditionally import BLE libraries to handle cloud deployment
+try:
+    from bleak import BleakScanner, BleakClient
+
+    BLE_AVAILABLE = True
+except ImportError:
+    BLE_AVAILABLE = False
 
 # Create FastAPI app
 app = FastAPI()
@@ -66,6 +73,9 @@ class ScanResult(BaseModel):
 @app.get("/scan", response_model=List[ScanResult])
 async def scan_devices():
     """Scan for available IMU devices"""
+    if not BLE_AVAILABLE:
+        return []  # Return empty list when running in cloud environment without BLE
+
     try:
         devices = await BleakScanner.discover(5.0, return_adv=True)
         imu_devices = []
@@ -82,6 +92,9 @@ async def scan_devices():
 @app.post("/connect/{device_address}")
 async def connect_device(device_address: str, background_tasks: BackgroundTasks):
     """Connect to an IMU device"""
+    if not BLE_AVAILABLE:
+        raise HTTPException(status_code=503, detail="BLE functionality not available in this environment")
+
     if device_address in active_connections:
         return {"status": "already_connected", "message": f"Already connected to {device_address}"}
 
@@ -95,6 +108,9 @@ async def connect_device(device_address: str, background_tasks: BackgroundTasks)
 @app.post("/disconnect/{device_address}")
 async def disconnect_device(device_address: str):
     """Disconnect from an IMU device"""
+    if not BLE_AVAILABLE:
+        raise HTTPException(status_code=503, detail="BLE functionality not available in this environment")
+
     if device_address not in active_connections:
         raise HTTPException(status_code=404, detail=f"Not connected to {device_address}")
 
@@ -233,6 +249,9 @@ async def download_zip(test_id: str):
 
 # Helper functions
 async def connect_and_monitor(device_address: str):
+    if not BLE_AVAILABLE:
+        return
+
     try:
         client = BleakClient(device_address)
         await client.connect()
@@ -287,8 +306,10 @@ async def create_zip_file(test_id: str):
     test_data[test_id]["end_time"] = datetime.now().isoformat()
 
 
-# Optional CLI start
+# Start the application
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Use Render's provided port or default to 8000
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
