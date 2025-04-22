@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -12,7 +10,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { NereusLogo } from "@/components/nereus-logo"
 import { AlertCircle, Loader2, CheckCircle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import Link from "next/link"
+
+// Demo users for quick login
+const DEMO_USERS = {
+  admin: { email: "admin@nereus.com", password: "admin123", role: "admin" },
+  tester: { email: "tester@nereus.com", password: "tester123", role: "tester" },
+}
 
 export default function LoginPage() {
   const router = useRouter()
@@ -23,36 +26,51 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [seedingDatabase, setSeedingDatabase] = useState(false)
   const [seedSuccess, setSeedSuccess] = useState(false)
 
-  const handleLogin = async (e: React.FormEvent) => {
+  // Simple login function that checks against demo credentials
+  const handleLogin = async (e) => {
     e.preventDefault()
     setError("")
     setIsLoading(true)
 
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      })
+      // Check if email/password match any demo user
+      const adminUser = DEMO_USERS.admin
+      const testerUser = DEMO_USERS.tester
 
-      const data = await response.json()
+      let user = null
+      let role = null
 
-      if (!response.ok) {
-        throw new Error(data.error || "Login failed")
+      if (email === adminUser.email && password === adminUser.password) {
+        user = adminUser
+        role = "admin"
+      } else if (email === testerUser.email && password === testerUser.password) {
+        user = testerUser
+        role = "tester"
       }
 
+      if (!user) {
+        throw new Error("Invalid email or password")
+      }
+
+      // Set session in localStorage
+      localStorage.setItem(
+          "user",
+          JSON.stringify({
+            email: user.email,
+            role: role,
+            isLoggedIn: true,
+          }),
+      )
+
       // Redirect based on role
-      if (data.role === "admin") {
+      if (role === "admin") {
         router.push("/admin/dashboard")
       } else {
         router.push("/tester/dashboard")
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error("Login error:", err)
       setError(err.message || "Invalid email or password")
     } finally {
@@ -60,28 +78,16 @@ export default function LoginPage() {
     }
   }
 
-  const seedDatabase = async () => {
-    setSeedingDatabase(true)
-    setSeedSuccess(false)
-    setError("")
-
-    try {
-      const response = await fetch("/api/seed", {
-        method: "POST",
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "Failed to seed database")
-      }
-
-      setSeedSuccess(true)
-    } catch (err: any) {
-      console.error("Seed error:", err)
-      setError(err.message || "Failed to seed database")
-    } finally {
-      setSeedingDatabase(false)
+  // Function to pre-fill demo credentials
+  const fillDemoCredentials = (type) => {
+    if (type === "admin") {
+      setEmail(DEMO_USERS.admin.email)
+      setPassword(DEMO_USERS.admin.password)
+    } else {
+      setEmail(DEMO_USERS.tester.email)
+      setPassword(DEMO_USERS.tester.password)
     }
+    setSeedSuccess(true)
   }
 
   return (
@@ -120,8 +126,8 @@ export default function LoginPage() {
                 {seedSuccess && (
                     <Alert className="mb-4 bg-green-500/10 text-green-500 border-green-500/20">
                       <CheckCircle className="h-4 w-4" />
-                      <AlertTitle>Success</AlertTitle>
-                      <AlertDescription>Database seeded successfully with test accounts.</AlertDescription>
+                      <AlertTitle>Demo Credentials Loaded</AlertTitle>
+                      <AlertDescription>You can now login with the pre-filled credentials.</AlertDescription>
                     </Alert>
                 )}
 
@@ -161,29 +167,19 @@ export default function LoginPage() {
                     )}
                   </Button>
                 </form>
-
-                <div className="mt-4 text-center">
-                  <p className="text-sm text-muted-foreground">
-                    Don't have an account?{" "}
-                    <Link href="/register" className="text-[#00D4EF] hover:underline">
-                      Register as Admin
-                    </Link>
-                  </p>
-                </div>
               </TabsContent>
             </Tabs>
           </CardContent>
           <CardFooter className="flex flex-col items-center text-center text-sm text-muted-foreground gap-2">
-            <p>For testing: admin@nereus.com / admin123 or tester@nereus.com / tester123</p>
-            <Button variant="outline" size="sm" onClick={seedDatabase} disabled={seedingDatabase} className="text-xs">
-              {seedingDatabase ? (
-                  <>
-                    <Loader2 className="mr-2 h-3 w-3 animate-spin" /> Creating test accounts...
-                  </>
-              ) : (
-                  "Create test accounts"
-              )}
-            </Button>
+            <p>For testing, use one of these accounts:</p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => fillDemoCredentials("admin")} className="text-xs">
+                Use Admin Account
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => fillDemoCredentials("tester")} className="text-xs">
+                Use Tester Account
+              </Button>
+            </div>
           </CardFooter>
         </Card>
       </div>

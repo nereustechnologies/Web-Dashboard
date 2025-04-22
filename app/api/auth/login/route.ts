@@ -27,8 +27,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid login credentials" }, { status: 401 })
     }
 
-    // Set session cookie
-    cookies().set("session", user.id, {
+    // Set session cookie - using await with cookies()
+    const cookieStore = cookies()
+    await cookieStore.set("session", user.id, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       maxAge: 60 * 60 * 24 * 7, // 1 week
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
     })
 
     // Set user role cookie for client-side access
-    cookies().set("userRole", user.role, {
+    await cookieStore.set("userRole", user.role, {
       httpOnly: false,
       secure: process.env.NODE_ENV === "production",
       maxAge: 60 * 60 * 24 * 7, // 1 week

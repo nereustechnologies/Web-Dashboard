@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
-import { createHash } from "crypto"
+import { supabase } from "@/lib/supabaseClient"
 
+// Update the POST method in the testers route to use Supabase Auth
 export async function POST(request: Request) {
   try {
     const { name, email, password, adminId } = await request.json()
@@ -15,20 +16,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "User already exists" }, { status: 400 })
     }
 
-    // Simple password hashing function for demo purposes
-    const hashPassword = (password: string) => {
-      return createHash("sha256").update(password).digest("hex")
+    // Create user in Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      user_metadata: {
+        name,
+        role: "tester",
+      },
+    })
+
+    if (authError) {
+      return NextResponse.json({ error: authError.message }, { status: 400 })
     }
 
-    // Hash password
-    const hashedPassword = hashPassword(password)
+    if (!authData.user) {
+      return NextResponse.json({ error: "Failed to create user" }, { status: 500 })
+    }
 
     // Create user in database
     const tester = await prisma.user.create({
       data: {
+        id: authData.user.id,
         name,
         email,
-        password: hashedPassword,
         role: "tester",
         adminId,
       },

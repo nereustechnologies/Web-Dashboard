@@ -1,12 +1,13 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { NereusLogo } from "@/components/nereus-logo"
 import { LogOut } from "lucide-react"
 import { useState } from "react"
+import { useAuth } from "@/components/auth-provider"
 
 interface MainNavProps {
     role: "admin" | "tester"
@@ -14,8 +15,8 @@ interface MainNavProps {
 
 export function MainNav({ role }: MainNavProps) {
     const pathname = usePathname()
-    const router = useRouter()
     const [isLoggingOut, setIsLoggingOut] = useState(false)
+    const { logout } = useAuth()
 
     const adminLinks = [
         { href: "/admin/dashboard", label: "Dashboard" },
@@ -35,10 +36,7 @@ export function MainNav({ role }: MainNavProps) {
     const handleLogout = async () => {
         setIsLoggingOut(true)
         try {
-            await fetch("/api/auth/logout", {
-                method: "POST",
-            })
-            router.push("/login")
+            logout()
         } catch (error) {
             console.error("Logout error:", error)
         } finally {

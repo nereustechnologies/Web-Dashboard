@@ -12,6 +12,7 @@ import { NereusLogo } from "@/components/nereus-logo"
 import { AlertCircle, Loader2 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import Link from "next/link"
+import { supabase } from "@/lib/supabase"
 
 export default function RegisterPage() {
     const router = useRouter()
@@ -29,6 +30,7 @@ export default function RegisterPage() {
         setFormData((prev) => ({ ...prev, [name]: value }))
     }
 
+    // Update the handleSubmit function to properly register with Supabase Auth
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setError("")
@@ -47,23 +49,37 @@ export default function RegisterPage() {
         setIsLoading(true)
 
         try {
-            const response = await fetch("/api/auth/register", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
+            // First, create the user in Supabase Auth
+            const { data: authData, error: authError } = await supabase.auth.signUp({
+                email: formData.email,
+                password: formData.password,
+                options: {
+                    data: {
+                        name: formData.name,
+                        role: "admin",
+                    },
                 },
-                body: JSON.stringify({
-                    name: formData.name,
-                    email: formData.email,
-                    password: formData.password,
-                    role: "admin",
-                }),
             })
 
-            const data = await response.json()
+            if (authError) {
+                throw new Error(authError.message)
+            }
 
-            if (!response.ok) {
-                throw new Error(data.error || "Registration failed")
+            if (!authData.user) {
+                throw new Error("Failed to create user")
+            }
+
+            // Then, store additional user data in the users table
+            const { error: dbError } = await supabase.from("users").insert({
+                id: authData.user.id,
+                name: formData.name,
+                email: formData.email,
+                role: "admin",
+            })
+
+            if (dbError) {
+                console.error("Error inserting user into database:", dbError)
+                throw new Error(dbError.message || "Failed to create user record")
             }
 
             // Redirect to login page

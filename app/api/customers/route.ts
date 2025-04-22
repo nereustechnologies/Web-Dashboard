@@ -5,8 +5,22 @@ export async function POST(request: Request) {
   try {
     const data = await request.json()
 
+    // Make sure the data matches the schema
+    const customerData = {
+      name: data.name,
+      email: data.email || `${data.name.toLowerCase().replace(/\s+/g, ".")}@example.com`, // Generate email if not provided
+      age: data.age,
+      gender: data.gender,
+      height: data.height,
+      weight: data.weight,
+      sleepLevels: data.sleepLevels,
+      activityLevel: data.activityLevel,
+      calorieIntake: data.calorieIntake,
+      mood: data.mood,
+    }
+
     const customer = await prisma.customer.create({
-      data,
+      data: customerData,
     })
 
     return NextResponse.json(customer)
@@ -22,13 +36,13 @@ export async function GET(request: Request) {
     const search = searchParams.get("search")
 
     const where = search
-      ? {
+        ? {
           OR: [
             { name: { contains: search, mode: "insensitive" } },
             { email: { contains: search, mode: "insensitive" } },
           ],
         }
-      : {}
+        : {}
 
     const customers = await prisma.customer.findMany({
       where,
