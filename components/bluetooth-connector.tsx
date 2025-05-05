@@ -39,7 +39,7 @@ export function BluetoothConnector({ onConnected }: BluetoothConnectorProps) {
     try {
       // Request device with the IMU service UUID
       const device = await navigator.bluetooth.requestDevice({
-        filters: [{ services: [IMU_SERVICE_UUID] }, { namePrefix: "Nordic_UART" }],
+        filters: [{ services: [IMU_SERVICE_UUID], namePrefix: "Nordic_UART" }],
         optionalServices: [IMU_SERVICE_UUID],
       })
 
