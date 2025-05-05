@@ -13,8 +13,8 @@ interface BluetoothConnectorProps {
 
 // Define the service and characteristic UUIDs for the IMU sensor
 // These should match the UUIDs used by your IMU device
-const IMU_SERVICE_UUID = "19b10000-e8f2-537e-4f6c-d104768a1214"
-const IMU_CHARACTERISTIC_UUID = "19b10001-e8f2-537e-4f6c-d104768a1214"
+const IMU_SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
+const IMU_CHARACTERISTIC_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 
 export function BluetoothConnector({ onConnected }: BluetoothConnectorProps) {
   const [isScanning, setIsScanning] = useState(false)
@@ -39,7 +39,7 @@ export function BluetoothConnector({ onConnected }: BluetoothConnectorProps) {
     try {
       // Request device with the IMU service UUID
       const device = await navigator.bluetooth.requestDevice({
-        filters: [{ services: [IMU_SERVICE_UUID] }, { namePrefix: "ArduinoIMU" }],
+        filters: [{ services: [IMU_SERVICE_UUID] }, { namePrefix: "Nordic_UART" }],
         optionalServices: [IMU_SERVICE_UUID],
       })
 
