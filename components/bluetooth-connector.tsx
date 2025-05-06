@@ -28,40 +28,33 @@ export function BluetoothConnector({ onConnected }: BluetoothConnectorProps) {
 
   const handleScan = async () => {
     if (!isWebBluetoothSupported) {
-      setError("Web Bluetooth API is not supported in your browser. Please use Chrome, Edge, or Opera.")
-      return
+      setError("Web Bluetooth API is not supported in your browser. Please use Chrome, Edge, or Opera.");
+      return;
     }
-
-    setIsScanning(true)
-    setError(null)
-    setDevices([])
-
+  
+    setIsScanning(true);
+    setError(null);
+    setDevices([]);
+  
     try {
-      // Request device with the IMU service UUID
+      console.log("Starting Bluetooth scan...");
       const device = await navigator.bluetooth.requestDevice({
-        filters: [{ services: ["battery_service"] }],
-      })
-
-      // Add the device to our list
-      setDevices((prev) => [...prev, device])
-
-      // Log the discovery to Supabase
-      await supabase.from("device_discoveries").insert({
-        device_id: device.id,
-        device_name: device.name || "Unknown Device",
-        discovered_at: new Date().toISOString(),
-      })
+        acceptAllDevices: true,
+        optionalServices: [IMU_SERVICE_UUID],
+      });
+      console.log("Device found:", device);
+      setDevices((prev) => [...prev, device]);
     } catch (err: any) {
-      console.error("Scan error:", err)
+      console.error("Scan error:", err);
       if (err.name === "NotFoundError") {
-        setError("No IMU devices found. Make sure your devices are powered on and in range.")
+        setError("No devices found. Make sure your devices are powered on and in range.");
       } else {
-        setError(err.message || "Failed to scan for Bluetooth devices")
+        setError(err.message || "Failed to scan for Bluetooth devices");
       }
     } finally {
-      setIsScanning(false)
+      setIsScanning(false);
     }
-  }
+  };
 
   const handleConnect = async (device: BluetoothDevice) => {
     setConnecting(true)
