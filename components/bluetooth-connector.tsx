@@ -39,7 +39,7 @@ export function BluetoothConnector({ onConnected }: BluetoothConnectorProps) {
     try {
       console.log("Starting Bluetooth scan...");
       const device = await navigator.bluetooth.requestDevice({
-        acceptAllDevices: true,
+        filters: [{ services: [IMU_SERVICE_UUID], namePrefix: "Nordic_UART" }],
         optionalServices: [IMU_SERVICE_UUID],
       });
       console.log("Device found:", device);
