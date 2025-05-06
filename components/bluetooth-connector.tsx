@@ -13,8 +13,8 @@ interface BluetoothConnectorProps {
 
 // Define the service and characteristic UUIDs for the IMU sensor
 // These should match the UUIDs used by your IMU device
-const IMU_SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
-const IMU_CHARACTERISTIC_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+const IMU_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
+const IMU_CHARACTERISTIC_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
 
 export function BluetoothConnector({ onConnected }: BluetoothConnectorProps) {
   const [isScanning, setIsScanning] = useState(false)
