@@ -93,12 +93,12 @@ export function BluetoothConnector({ onConnected }: BluetoothConnectorProps) {
     }
   }
 
-  // Initial scan on component mount
-  useEffect(() => {
-    if (isWebBluetoothSupported) {
-      handleScan()
-    }
-  }, [])
+  // // Initial scan on component mount
+  // useEffect(() => {
+  //   if (isWebBluetoothSupported) {
+  //     handleScan()
+  //   }
+  // }, [])
 
   if (!isWebBluetoothSupported) {
     return (
