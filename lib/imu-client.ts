@@ -21,8 +21,8 @@ export interface TestInfo {
 }
 
 // Define the service and characteristic UUIDs for the IMU sensor
-const IMU_SERVICE_UUID = "19b10000-e8f2-537e-4f6c-d104768a1214"
-const IMU_CHARACTERISTIC_UUID = "19b10001-e8f2-537e-4f6c-d104768a1214"
+const IMU_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
+const IMU_CHARACTERISTIC_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
 
 class IMUClientService {
   private device: BluetoothDevice | null = null
