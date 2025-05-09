@@ -80,6 +80,10 @@ export async function setupSupabaseTables() {
             gyr_x FLOAT NOT NULL,
             gyr_y FLOAT NOT NULL,
             gyr_z FLOAT NOT NULL,
+            mag_x FLOAT NOT NULL,
+            mag_y FLOAT NOT NULL,
+            mag_z FLOAT NOT NULL,
+            battery FLOAT NOT NULL, 
             timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         `);
