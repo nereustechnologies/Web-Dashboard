@@ -145,7 +145,7 @@ export async function setupSupabaseStorage() {
 
         if (!exists) {
             await supabase.storage.createBucket("test-data", {
-                public: false,
+                public: true,
                 allowedMimeTypes: ["text/csv", "application/json"],
                 fileSizeLimit: 52428800,
             });
