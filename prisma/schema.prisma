@@ -34,10 +34,6 @@ model Customer {
   gender        String
   height        Float
   weight        Float
-  sleepLevels   Float
-  activityLevel String
-  calorieIntake Int
-  mood          String
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   tests         Test[]
