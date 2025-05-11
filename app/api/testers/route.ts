@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@supabase/supabase-js"
 
-// Update the POST method in the testers route to use Supabase Auth
+// ✅ Secure admin client (not exposed to client/browser)
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
 export async function POST(request: Request) {
   try {
     const { name, email, password, adminId } = await request.json()
 
-    // Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: { email },
     })
@@ -16,7 +20,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "User already exists" }, { status: 400 })
     }
 
-    // Create user in Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
       password,
@@ -34,7 +37,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to create user" }, { status: 500 })
     }
 
-    // Create user in database
     const tester = await prisma.user.create({
       data: {
         id: authData.user.id,
