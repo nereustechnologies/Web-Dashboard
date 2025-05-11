@@ -13,10 +13,6 @@ export async function POST(request: Request) {
       gender: data.gender,
       height: data.height,
       weight: data.weight,
-      sleepLevels: data.sleepLevels,
-      activityLevel: data.activityLevel,
-      calorieIntake: data.calorieIntake,
-      mood: data.mood,
     }
 
     const customer = await prisma.customer.create({
