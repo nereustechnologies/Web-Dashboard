@@ -27,10 +27,6 @@ export async function setupSupabaseTables() {
             gender TEXT NOT NULL,
             height FLOAT NOT NULL,
             weight FLOAT NOT NULL,
-            sleep_levels FLOAT NOT NULL,
-            activity_level TEXT NOT NULL,
-            calorie_intake INTEGER NOT NULL,
-            mood TEXT NOT NULL,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         `);

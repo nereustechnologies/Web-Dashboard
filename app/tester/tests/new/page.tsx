@@ -220,10 +220,6 @@ export default function NewTest() {
             gender: userInfo.gender,
             height: Number.parseFloat(userInfo.height) || 0,
             weight: Number.parseFloat(userInfo.weight) || 0,
-            sleep_levels: 0,
-            activity_level: "Moderate",
-            calorie_intake: 2000,
-            mood: "Good",
           })
           .select()
           .single()
