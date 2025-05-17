@@ -11,7 +11,7 @@ const supabase = createClient(
 export async function POST(request: Request) {
   try {
     const { name, email, password, adminId } = await request.json()
-
+    console.log("Creating tester with data:", { name, email, password, adminId })
     const existingUser = await prisma.user.findUnique({
       where: { email },
     })
@@ -27,6 +27,7 @@ export async function POST(request: Request) {
         name,
         role: "tester",
       },
+      email_confirm: true,
     })
 
     if (authError) {
@@ -44,6 +45,7 @@ export async function POST(request: Request) {
         email,
         role: "tester",
         adminId,
+        password,
       },
     })
 

@@ -33,7 +33,7 @@ export default function ManageTesters() {
   const fetchTesters = async () => {
     try {
       // In a real app, you would get the admin ID from auth context
-      const adminId = "current-admin-id"
+      const adminId = "236db2aa-6ab5-4474-844f-2200b4331435"
       const response = await fetch(`/api/testers?adminId=${adminId}`)
 
       if (!response.ok) {
@@ -54,7 +54,7 @@ export default function ManageTesters() {
 
     try {
       // In a real app, you would get the admin ID from auth context
-      const adminId = "current-admin-id"
+      const adminId = "236db2aa-6ab5-4474-844f-2200b4331435"
 
       const response = await fetch("/api/testers", {
         method: "POST",

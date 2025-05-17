@@ -58,7 +58,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
   try {
     const tester = await prisma.user.findUnique({
       where: { id: params.id },
-      select: { email: true },
+      select: { id: true },
     })
 
     if (!tester) {
@@ -66,7 +66,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     }
 
     // Delete user from Supabase
-    const { error: authError } = await supabase.auth.admin.deleteUser(tester.email)
+    const { error: authError } = await supabase.auth.admin.deleteUser(tester.id)
 
     if (authError) {
       console.error("Error deleting user from Supabase:", authError)
